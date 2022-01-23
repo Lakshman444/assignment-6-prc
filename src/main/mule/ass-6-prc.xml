@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm" xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+	<http:request-config name="HTTP_Request_configuration_2" doc:name="HTTP Request configuration" doc:id="ab55179f-07d5-4e02-9096-0a2a4fe88989" >
+		<http:request-connection host="localhost" port="8083" />
+	</http:request-config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="3d7ae83b-8e8c-4f16-b852-b6f83ca49852" >
+		<email:smtp-connection host="smtp.gmail.com" port="587" user="asamohanlakshman@gmail.com" password="9966653004" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<vm:config name="VM_Config" doc:name="VM Config" doc:id="2741d281-b796-411d-9d12-6de850387da0" >
+		<vm:queues >
+			<vm:queue queueName="save" queueType="PERSISTENT" />
+		</vm:queues>
+	</vm:config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="8371e98c-f96e-405e-b98a-b3031baaf7e0" >
+		<http:request-connection host="localhost" port="8081" />
+	</http:request-config>
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="5e050504-09af-46be-835b-e9359e7afb6e" >
+		<http:listener-connection host="0.0.0.0" port="8084" />
+	</http:listener-config>
+	<vm:config name="VM_Config1" doc:name="VM Config" doc:id="873eaac5-d61e-4ad7-a32b-3b33592d0005" >
+		<vm:queues >
+			<vm:queue queueName="vmlist" queueType="PERSISTENT"/>
+		</vm:queues>
+	</vm:config>
+	<http:request-config name="HTTP_Request_configuration1" doc:name="HTTP Request configuration" doc:id="fd6aafa2-7ff6-4391-a428-4ff57c10646e" >
+		<http:request-connection host="localhost" port="8083" />
+	</http:request-config>
+	<flow name="ass-6-prcFlow" doc:id="cddd36c2-9c95-4c2c-86b9-b5b318b13d5f" >
+		<set-variable value="#[attributes.uriParams.getID]" doc:name="Set Variable" doc:id="f208e22b-7dcf-44c2-a580-792923a1cc9a" variableName="a"/>
+		<http:request method="GET" doc:name="Request" doc:id="141e02be-2c16-43b9-b077-c711ce380c7b" config-ref="HTTP_Request_configuration1" path="/api/getdetails/{empID}" responseTimeout="1800000">
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"empID" : attributes.uriParams.getID
+}]]]></http:uri-params>
+		</http:request>
+		<choice doc:name="Choice" doc:id="6e29bb28-eaf5-4f73-a10c-ea90858478ee" >
+			<when expression="#[sizeOf(payload)&gt;0]" >
+				<ee:transform doc:name="Transform Message" doc:id="7ff847fd-6f33-4100-9ad9-0473a564196e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="68c49897-332f-4843-9438-8374d9bc6a35" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "there is no data for these empID= " ++ vars.a as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<email:send doc:id="9d32819b-fdf2-473c-8906-53af40c92551" config-ref="Email_SMTP" fromAddress="asamohanlakshman@gmail.com" subject="POC" doc:name="Send">
+					<email:to-addresses >
+						<email:to-address value="alakshman@eniquesolutions.com" />
+					</email:to-addresses>
+					<email:body contentType="text/plain" />
+				</email:send>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="62d54bdd-c04e-4f2f-809e-44b9ae185477">
+				<email:send doc:name="Send" doc:id="9164c9a8-f9cc-4a84-a4ce-cf83f4121a83" config-ref="Email_SMTP" fromAddress="asamohanlakshman@gmail.com" subject="POC">
+					<email:to-addresses>
+						<email:to-address value="alakshman@eniquesolutions.com" />
+					</email:to-addresses>
+					<email:body contentType="text/plain" >
+						<email:content ><![CDATA[there is error in flow]]></email:content>
+					</email:body>
+				</email:send>
+				<vm:publish doc:name="Publish" doc:id="3db8458f-c6c4-482b-ac87-950891534012" config-ref="VM_Config1" queueName="vmlist">
+					<vm:content ><![CDATA[#[vars.a]]]></vm:content>
+				</vm:publish>
+				<ee:transform doc:name="Transform Message" doc:id="180d8b34-2797-4b1f-9ae8-301d3f3194c0" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"your request has been recieved for value " ++ vars.a as String,
+	transactionId: correlationId
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<email:send doc:name="Send" doc:id="8879e6ee-8945-418f-887a-1d605e67852c" config-ref="Email_SMTP" fromAddress="asamohanlakshman@gmail.com" subject="POC" >
+					<email:to-addresses >
+						<email:to-address value="alakshman@eniquesolutions.com" />
+					</email:to-addresses>
+					<email:body contentType="text/plain" >
+						<email:content ><![CDATA[#[payload.message ++ " these is your transactionId " ++ payload.transactionId]]]></email:content>
+					</email:body>
+				</email:send>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="ass-6-prcFlow1" doc:id="5af18ab7-0a32-4213-b84e-4fb0ba8d4dca" >
+		<vm:listener doc:name="Listener" doc:id="c2003951-0ef2-4ff0-b70c-95509cf4aa6f" config-ref="VM_Config1" queueName="vmlist" timeout="15"/>
+		<http:request method="GET" doc:name="Request" doc:id="8cef7733-cd48-40d6-95b8-fc4a4d9cb6da" config-ref="HTTP_Request_configuration_2" path="/api/getdetails/{empID}" responseTimeout="1800000">
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"empID" : payload
+}]]]></http:uri-params>
+		</http:request>
+		<choice doc:name="Choice" doc:id="7428e854-0139-456c-9bf4-c33e41a8e0e3" >
+			<when expression="#[sizeOf(payload)&gt;0]" >
+				<ee:transform doc:name="Transform Message" doc:id="a21ad80e-e9ae-492c-aa5c-31e750dfc4fb" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<email:send doc:name="Send" doc:id="b9f489fc-7d89-485f-a215-6eface3691d3" config-ref="Email_SMTP" fromAddress="asamohanlakshman@gmail.com" subject="POC" >
+					<email:to-addresses >
+						<email:to-address value="alakshman@eniquesolutions.com" />
+					</email:to-addresses>
+					<email:body contentType="text/plain" />
+				</email:send>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="f49dac26-b500-4431-bd12-934f4a7a1ba8" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message: "there is no data for these empID= " ++ vars.a as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<email:send doc:name="Send" doc:id="f17c7beb-b286-4ec2-8989-0d5532c8d7f6" config-ref="Email_SMTP" fromAddress="asamohanlakshman@gmail.com" subject="POC" >
+					<email:to-addresses >
+						<email:to-address value="alakshman@eniquesolutions.com" />
+					</email:to-addresses>
+					<email:body contentType="text/plain" />
+				</email:send>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
